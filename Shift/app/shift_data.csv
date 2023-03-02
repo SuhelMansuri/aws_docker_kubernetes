@@ -1,0 +1,5 @@
+shift_id,shift_name
+1,morningShift
+2,dayShift
+3,afternoonShift
+4,nightShift
