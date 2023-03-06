@@ -31,12 +31,8 @@ Communication tool we will use to communicate between our Kubernetes cluster and
                 Test that the aws-iam-authenticator binary works.
                         aws-iam-authenticator help
          
-
         
-IN AWS Account
-Creating IAM user for ecrUser from IAM console
-        Attach existing policy  1> AmazonEC2ContainerRegistryFullAccess
-                                2> AmazonElasticContainerRegistryPublicFullAccess	
+	
 
 Installing AWS CLI(in Local)
                 https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
@@ -44,10 +40,20 @@ Installing AWS CLI(in Local)
                 open terminal to configure AWS command: 
                         aws configure
                 Will ask
-                        AWS Access Key ID [None]: provided from user programatic acess key
-                        AWS Secret Access Key [None]:provided from user programatic acess key
+                        AWS Access Key ID [None]: provided from user/root programatic acess key
+                        AWS Secret Access Key [None]:provided from user/root programatic acess key
                         Default region name [None]: us-east-1
                         Default output format [None]: json
+
+Installing or updating eksctl(in Local)
+                Install or upgrade eksctl. If eksctl is already installed, the following command upgrades and relinks it. Or if eksctl isn't installed yet, the following command installs Weaveworks Homebrew tap as needed, and then installs eksctl. command :
+                        brew upgrade eksctl && { brew link --overwrite eksctl; } || { brew tap weaveworks/tap; brew install weaveworks/tap/eksctl; }
+                        (Source - https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html)
+
+IN AWS Account
+Creating IAM user for ecrUser from IAM console
+        Attach existing policy  1> AmazonEC2ContainerRegistryFullAccess
+                                2> AmazonElasticContainerRegistryPublicFullAccess
 
 Creating Elastic Container Registry(ECR))(In AWS account)
         Create Repository named usershift
@@ -85,6 +91,66 @@ Create IAM Role
 Create EKS Cluster using Created VPC and IAM Role
         Cluster Name - UserShift-EKS-Cluster
         Cluster endpoint access : Public & Private
+        Security Group
+        To check in your local how many cluster are there 
+                aws eks list-clusters 
+        Update kubeconfig file in remote machine from cluster using command:(Sorce : https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html)
+                aws eks update-kubeconfig --name UserShift-EKS-Cluster --region us-east-1 
+
+                we can see cluster information using command:
+                        cat /Users/suhelmansuri/.kube/config
+        
+        Now list cluster using Command:
+                aws eks list-clusters
+Create IAM role for EKS worker nodes 
+        Role Name : EKSWorkerNodeRole
+        policies:
+                - AmazonEC2ContainerRegistryReadOnly
+                - AmazonEKS_CNI_Policy
+                - AmazonEKSWorkerNodePolicy
+Create Worker Node Group in Cluster(EKSWorkerNodeGroup)
+        Go to cluster -> Compute -> Node Group
+        Select the Role created before(EKSWorkerNodeRole)
+        I have tried 3 diffrent matchine(Instance type) in Node Group where t2.micro is too small so doesnt work pods goies in pending and CrashLoopBackOff status wher  t3.medium shows running in AWS Nodes but upon checking in terminal it shows CrashLoopBackOff so finally used  m6g.large(AMI type - AL2_ARM_64) it worked 
+        used t2.micro
+        
+Install Helm in Local
+        brew install helm
+Get EKS Cluster service(status of cluster)
+        eksctl get cluster --name UserShift-EKS-Cluster --region us-east-1
+Create Deploy Manifest(Source : https://docs.aws.amazon.com/eks/latest/userguide/sample-deployment.html)
+        using aws document sample created deployment.yaml and service.yaml
+        Create Namespace command:
+                kubectl create namespace user-shift
+        Issue following command to create our deployment
+                kubectl apply -f user-shift-deployment.yaml
+        Undo deployment following command:
+                kubectl delete -f user-shift-deployment.yaml
+For the best user experience auto scale this service when the average CPU reaches 70%
+
+Installing the Kubernetes Metrics Server(Source - https://docs.aws.amazon.com/eks/latest/userguide/metrics-server.html)
+        Deploy the Metrics Server
+                kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+        Verify the metric servers using below command
+                kubectl get apiservice v1beta1.metrics.k8s.io -o json
+
+Horizontal Pod Autoscaler(Source - https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html)
+        Create Autoscaler for User
+                kubectl autoscale deployment user --cpu-percent=70 --min=1 --max=10
+        Create Autoscaler for Shift
+                kubectl autoscale deployment shift --cpu-percent=70 --min=1 --max=10
+        Verify autoscaler
+                kubectl get hpa      
+        remove autoscaler
+                kubectl delete hpa user 
+        Create a load for the web server by running a container
+                kubectl --generator=run-pod/v1 run -i --tty load-generator --image=busybox /bin/sh             
+Updated images with new tags
+        docker tag user:latest 599270912675.dkr.ecr.us-east-1.amazonaws.com/user:v1.0
+        docker push 599270912675.dkr.ecr.us-east-1.amazonaws.com/user:v1.0
+deployment can handle rolling deployments and rollbacks.
+        kubectl set image deployment.apps/user image=599270912675.dkr.ecr.us-east-1.amazonaws.com/user:v1.0
 
 
 

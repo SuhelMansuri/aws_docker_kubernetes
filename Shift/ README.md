@@ -28,3 +28,4 @@ Start the Docker Container
 start the API server using command :
         uvicorn main:app --reload
 In browser, navigate to http://localhost:8000 to confirm that your API is working
+599270912675.dkr.ecr.us-east-1.amazonaws.com/shift:latest
