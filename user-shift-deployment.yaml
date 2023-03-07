@@ -66,7 +66,7 @@ metadata:
   labels:
     app: user
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     app: user
   ports:
@@ -81,7 +81,7 @@ metadata:
   labels:
     app: shift
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     app: shift
   ports:
